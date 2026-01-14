@@ -1,5 +1,7 @@
 # V6Coin Protocol | V6币协议
 
+> 这只是一个想法，希望能被看见、实现。｜ This is just an idea, I hope it can be seen and realized.
+
 IPv6 IoT Network Native Value Incentive Layer | IPv6物联网原生价值激励层
 
 Production-Grade Technical Whitepaper & Open Protocol Specification | 生产级技术白皮书+开源协议规范
@@ -27,7 +29,7 @@ Production-Grade Technical Whitepaper & Open Protocol Specification | 生产级�
 
 ## 📚 快速导航
 
-- 📄 [完整白皮书](docs/V6Coin_Whitepaper_Final_CN.md)
+- 📄 [完整白皮书](docs/V6Coin_Whitepaper_CN.md)
 
 - 📖 [技术附录规范](specs/cn/)
 
@@ -138,7 +140,7 @@ cd code/go # Go语言结构体（物联网开发首选）
 
 ## 📚 Quick Navigation
 
-- 📄 [Full Whitepaper](docs/V6Coin_Whitepaper_Final_EN.md)
+- 📄 [Full Whitepaper](docs/V6Coin_Whitepaper_EN.md)
 
 - 📖 [Technical Specifications](specs/en/)
 
