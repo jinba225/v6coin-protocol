@@ -10,6 +10,7 @@ Production-Grade Technical Whitepaper & Open Protocol Specification | 生产级�
 
 ---
 
+# CN
 ## ✨ 核心亮点
 
 ✅ **原生IPv6协议耦合**：128位地址天然实现「地址即钱包」，无需额外映射表，完美契合物联网设备原生网络属性  
