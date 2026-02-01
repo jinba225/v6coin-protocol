@@ -29,9 +29,9 @@ Production-Grade Technical Whitepaper & Open Protocol Specification | 生产级�
 
 ## 📚 快速导航
 
-- 📄 [完整白皮书](docs/V6Coin_Whitepaper_CN.md)
+- 📄 [完整白皮书](docs/whitepaper/V6Coin_Whitepaper_CN.md)
 
-- 📖 [技术附录规范](specs/cn/)
+- 📖 [技术附录规范](docs/specs/cn/)
 
 - 🔧 [可复用代码片段](code/)
 
@@ -140,9 +140,9 @@ cd code/go # Go语言结构体（物联网开发首选）
 
 ## 📚 Quick Navigation
 
-- 📄 [Full Whitepaper](docs/V6Coin_Whitepaper_EN.md)
+- 📄 [Full Whitepaper](docs/whitepaper/V6Coin_Whitepaper_EN.md)
 
-- 📖 [Technical Specifications](specs/en/)
+- 📖 [Technical Specifications](docs/specs/en/)
 
 - 🔧 [Reusable Code Snippets](code/)
 
