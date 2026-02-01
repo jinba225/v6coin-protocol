@@ -95,3 +95,46 @@ func HashSHA256(data []byte) []byte {
 	hash := sha256.Sum256(data)
 	return hash[:]
 }
+
+// KeyPairFromPrivateKey creates a key pair from private key
+func KeyPairFromPrivateKey(privateKey []byte) (*KeyPair, error) {
+	if len(privateKey) != 32 {
+		return nil, fmt.Errorf("invalid private key length: %d (expected 32)", len(privateKey))
+	}
+
+	privateKeyCopy := make(ed25519.PrivateKey, 32)
+	copy(privateKeyCopy, privateKey[:32])
+	publicKey := make(ed25519.PublicKey, 32)
+	copy(publicKey, privateKeyCopy[32:])
+
+	return &KeyPair{
+		PrivateKey: privateKeyCopy,
+		PublicKey:  publicKey,
+	}, nil
+}
+
+// Sign signs a message with private key (alias for KeyPair.Sign)
+func Sign(privateKey []byte, message []byte) ([]byte, error) {
+	if len(privateKey) != 32 {
+		return nil, fmt.Errorf("invalid private key length: %d (expected 32)", len(privateKey))
+	}
+
+	kp, err := KeyPairFromPrivateKey(privateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return kp.Sign(message), nil
+}
+
+// Verify verifies a signature with public key
+func Verify(publicKey []byte, message, signature []byte) bool {
+	if len(publicKey) != 32 {
+		return false
+	}
+	if len(signature) != 64 {
+		return false
+	}
+
+	return ed25519.Verify(publicKey, message, signature)
+}
