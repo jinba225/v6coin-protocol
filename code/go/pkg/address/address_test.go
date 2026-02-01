@@ -1,6 +1,7 @@
 package address
 
 import (
+	"encoding/binary"
 	"net"
 	"testing"
 	"time"
@@ -376,7 +377,7 @@ func TestValidateMigrationOldTimestamp(t *testing.T) {
 }
 
 func TestValidateMigrationNilMigration(t *testing.T) {
-	publicKey := make([]byte, 32)
+	privateKey := make([]byte, 32)
 	kp, _ := crypto.KeyPairFromPrivateKey(privateKey)
 
 	err := ValidateMigration(nil, kp.PublicKey)
@@ -390,6 +391,7 @@ func TestValidateAddress(t *testing.T) {
 		IsTemporary:   false,
 		AddressType:   AddressTypeCore,
 		CreatedAt:     time.Now(),
+		Index:         0,
 	}
 
 	err := ValidateAddress(validAddr)
@@ -403,6 +405,7 @@ func TestValidateAddressInvalidIID(t *testing.T) {
 		IsTemporary:   false,
 		AddressType:   AddressTypeCore,
 		CreatedAt:     time.Now(),
+		Index:         0,
 	}
 
 	err := ValidateAddress(invalidAddr)
@@ -508,7 +511,7 @@ func TestEqualsDifferent(t *testing.T) {
 
 	addr1 := &V6Address{
 		NetworkPrefix: networkPrefix,
-		ID:            0x123456789ABCDEF0,
+		IID:           0x123456789ABCDEF0,
 		IsTemporary:   false,
 		AddressType:   AddressTypeCore,
 		CreatedAt:     time.Now(),
@@ -517,7 +520,7 @@ func TestEqualsDifferent(t *testing.T) {
 
 	addr2 := &V6Address{
 		NetworkPrefix: networkPrefix,
-		ID:            0x123456789ABCDEF1, // Different IID
+		IID:           0x123456789ABCDEF1, // Different IID
 		IsTemporary:   false,
 		AddressType:   AddressTypeCore,
 		CreatedAt:     time.Now(),
@@ -532,7 +535,7 @@ func TestEqualsTemporaryDifferent(t *testing.T) {
 
 	addr1 := &V6Address{
 		NetworkPrefix: networkPrefix,
-		ID:            0x123456789ABCDEF0,
+		IID:           0x123456789ABCDEF0,
 		IsTemporary:   false,
 		AddressType:   AddressTypeCore,
 		CreatedAt:     time.Now(),
@@ -540,7 +543,7 @@ func TestEqualsTemporaryDifferent(t *testing.T) {
 
 	addr2 := &V6Address{
 		NetworkPrefix: networkPrefix,
-		ID:            0x123456789ABCDEF0,
+		IID:           0x123456789ABCDEF0,
 		IsTemporary:   true, // Different
 		AddressType:   AddressTypeCore,
 		CreatedAt:     time.Now(),
@@ -576,7 +579,7 @@ func TestAddressRoundtrip(t *testing.T) {
 
 	newAddr := &V6Address{
 		NetworkPrefix: extractedPrefix,
-		ID:            extractedIID,
+		IID:           extractedIID,
 		IsTemporary:   original.IsTemporary,
 		AddressType:   original.AddressType,
 		CreatedAt:     original.CreatedAt,
@@ -615,7 +618,7 @@ func BenchmarkGenerateAddress(b *testing.B) {
 func BenchmarkGetFullAddress(b *testing.B) {
 	addr := &V6Address{
 		NetworkPrefix: net.ParseIP("2001:db8::/32"),
-		ID:            0x123456789ABCDEF0,
+		IID:           0x123456789ABCDEF0,
 		IsTemporary:   false,
 		CreatedAt:     time.Now(),
 	}
