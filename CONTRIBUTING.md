@@ -65,6 +65,9 @@ git checkout -b fix/your-bug-fix
 - 编写单元测试，覆盖率 > 80%
 
 ```bash
+# 进入 Go 项目目录
+cd code/go
+
 # 格式化代码
 go fmt ./...
 

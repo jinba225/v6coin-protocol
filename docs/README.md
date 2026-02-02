@@ -65,7 +65,29 @@
 
 ## 文档索引
 
+### 技术规范
+
+#### 中文版本
+- [01-IPv6 扩展报头规范](./specs/cn/01-ipv6-header-spec.md) - Hop-by-Hop Options Header 数据结构
+- [02-CGA 地址映射规范](./specs/cn/02-cga-address-spec.md) - Ed25519 密钥对到 IPv6 IID 的派生
+- [03-PoC 共识机制规范](./specs/cn/03-poc-consensus-spec.md) - 连接证明与贡献度计算
+- [04-交易验证规范](./specs/cn/04-transaction-spec.md) - 在线/离线交易与 QoS 优先级
+- [05-加密算法规范](./specs/cn/05-crypto-spec.md) - Ed25519 / AES-256 / SHA-256
+- [06-P2P 网络协议规范](./specs/cn/06-p2p-protocol-spec.md) - 节点发现与消息路由
+- [07-区块链数据结构规范](./specs/cn/07-blockchain-spec.md) - 区块与状态数据模型
+- [08-RPC API 规范](./specs/cn/08-rpc-api-spec.md) - 节点交互接口定义
+
+#### English Version
+- [01-IPv6 Extension Header Spec](./specs/en/01-ipv6-header-spec.md) - Hop-by-Hop Options Header Data Structure
+- [02-CGA Address Mapping Spec](./specs/en/02-cga-address-spec.md) - Ed25519 Key to IPv6 IID Derivation
+- [03-PoC Consensus Spec](./specs/en/03-poc-consensus-spec.md) - Proof of Connection & Contribution Calculation
+- [04-Transaction Spec](./specs/en/04-transaction-spec.md) - Online/Offline Transaction & QoS Priority
+- [05-Cryptography Spec](./specs/en/05-crypto-spec.md) - Ed25519 / AES-256 / SHA-256
+- [06-P2P Network Protocol Spec](./specs/en/06-p2p-protocol-spec.md) - Node Discovery & Message Routing
+- [07-Blockchain Data Structure Spec](./specs/en/07-blockchain-spec.md) - Block & State Data Model
+- [08-RPC API Spec](./specs/en/08-rpc-api-spec.md) - Node Interaction Interface
+
+### 其他文档
 - [完整白皮书](../V6Coin_Whitepaper_CN.md)
-- [技术规范](./specs/)
 - [API 文档](./api/)
 - [贡献指南](../../CONTRIBUTING.md)
