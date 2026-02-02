@@ -835,6 +835,19 @@ func (cm *ConnectionManager) GetConnectedPeers() []PeerID {
 	return connected
 }
 
+// GetPeers returns list of all known peers
+func (cm *ConnectionManager) GetPeers() []*Peer {
+	cm.connectionsMu.Lock()
+	defer cm.connectionsMu.Unlock()
+
+	peers := make([]*Peer, 0, len(cm.peers))
+	for _, peer := range cm.peers {
+		peers = append(peers, peer)
+	}
+
+	return peers
+}
+
 // BanPeer bans a peer
 func (cm *ConnectionManager) BanPeer(peerID string, reason string, score int) error {
 	cm.connectionsMu.Lock()
