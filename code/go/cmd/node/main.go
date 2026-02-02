@@ -15,6 +15,7 @@ import (
 	"github.com/jinba225/v6coin-protocol/pkg/blockchain"
 	"github.com/jinba225/v6coin-protocol/pkg/consensus"
 	"github.com/jinba225/v6coin-protocol/pkg/p2p"
+	"github.com/jinba225/v6coin-protocol/pkg/rpc"
 	"github.com/jinba225/v6coin-protocol/pkg/state"
 	"github.com/jinba225/v6coin-protocol/pkg/tx"
 	"github.com/jinba225/v6coin-protocol/pkg/wallet"
@@ -56,6 +57,7 @@ type Node struct {
 	txPool          *tx.TxPool
 	wallet          *wallet.Wallet
 	p2pNetwork      *p2p.ConnectionManager
+	rpcServer       *rpc.Server
 
 	// State
 	stateDB        state.StateDB
@@ -86,7 +88,7 @@ type SyncRequest struct {
 // Config is node configuration
 type Config struct {
 	BindAddress   string
-	BindPort      uint16
+	BindPort      int
 	DataDir       string
 	NetworkPrefix string
 	MaxPeers      int
@@ -95,6 +97,8 @@ type Config struct {
 	Mnemonic      string
 	Password      string
 	IsValidator   bool
+	RPCHost       string
+	RPCPort       int
 }
 
 // NewNode creates a new node instance
@@ -198,6 +202,18 @@ func (n *Node) Start() error {
 
 	// Update status
 	n.updateStatus()
+
+	n.wg.Add(1)
+	go func() {
+		defer n.wg.Done()
+		rpcServer := rpc.NewServer(&rpc.Config{
+			Host: n.config.RPCHost,
+			Port: n.config.RPCPort,
+		})
+		if err := rpcServer.Start(n.context); err != nil {
+			log.Printf("RPC server error: %v", err)
+		}
+	}()
 
 	log.Println("V6Coin node started successfully")
 	return nil
@@ -507,22 +523,26 @@ func main() {
 		showVersion   bool
 		command       string
 		bindAddress   string
-		bindPort      uint16
+		bindPort      int
 		dataDir       string
 		networkPrefix string
 		mnemonic      string
 		password      string
 		isValidator   bool
+		rpcHost       string
+		rpcPort       int
 	)
 
 	flag.BoolVar(&showVersion, "version", false, "Show version information")
 	flag.StringVar(&bindAddress, "bind", DefaultBindAddress, "Bind address")
-	flag.Uint16Var(&bindPort, "port", uint16(DefaultBindPort), "Bind port (default 38901)")
+	flag.IntVar(&bindPort, "port", DefaultBindPort, "Bind port (default 38901)")
 	flag.StringVar(&dataDir, "datadir", DefaultDataDir, "Data directory")
 	flag.StringVar(&networkPrefix, "network", DefaultNetworkPrefix, "Network prefix")
 	flag.StringVar(&mnemonic, "mnemonic", "", "Recover wallet from mnemonic")
 	flag.StringVar(&password, "password", "", "Wallet password")
 	flag.BoolVar(&isValidator, "validator", false, "Run as validator")
+	flag.StringVar(&rpcHost, "rpc-host", "0.0.0.0", "RPC server bind address")
+	flag.IntVar(&rpcPort, "rpc-port", 9090, "RPC server port")
 	flag.Parse()
 
 	args := flag.Args()
@@ -546,6 +566,8 @@ func main() {
 		Mnemonic:      mnemonic,
 		Password:      password,
 		IsValidator:   isValidator,
+		RPCHost:       rpcHost,
+		RPCPort:       rpcPort,
 	}
 
 	// Handle shutdown signals

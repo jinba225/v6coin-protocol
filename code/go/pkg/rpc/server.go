@@ -13,11 +13,12 @@ import (
 // Server represents the RPC server.
 type Server struct {
 	router   *gin.Engine
-	httpPort int
+	httpAddr string
 }
 
 // Config holds the server configuration.
 type Config struct {
+	Host         string
 	Port         int
 	Mode         string // debug, release, test
 	ReadTimeout  time.Duration
@@ -27,6 +28,7 @@ type Config struct {
 // DefaultConfig returns a default server configuration.
 func DefaultConfig() *Config {
 	return &Config{
+		Host:         "0.0.0.0",
 		Port:         9090,
 		Mode:         "release",
 		ReadTimeout:  10 * time.Second,
@@ -48,62 +50,21 @@ func NewServer(cfg *Config) *Server {
 	// Add recovery middleware to recover from panics
 	router.Use(gin.Recovery())
 
+	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 	server := &Server{
 		router:   router,
-		httpPort: cfg.Port,
+		httpAddr: addr,
 	}
 
-	server.setupRoutes()
+	SetupRoutes(router)
 
 	return server
 }
 
-// setupRoutes configures all API routes.
-func (s *Server) setupRoutes() {
-	// Health check endpoint
-	s.router.GET("/health", s.healthCheck)
-
-	// API v1 routes
-	_ = s.router.Group("/api/v1")
-	// TODO: Add routes for blockchain, node, and network operations
-	// v1 := s.router.Group("/api/v1")
-	// {
-	// 	// Blockchain routes
-	// 	blockchain := v1.Group("/blockchain")
-	// 	{
-	// 		blockchain.GET("/block/:height", h.GetBlock)
-	// 		blockchain.GET("/block/latest", h.GetLatestBlock)
-	// 		blockchain.GET("/transaction/:hash", h.GetTransaction)
-	// 	}
-	//
-	// 	// Node routes
-	// 	node := v1.Group("/node")
-	// 	{
-	// 		node.GET("/info", h.GetNodeInfo)
-	// 		node.GET("/peers", h.GetPeers)
-	// 	}
-	//
-	// 	// Network routes
-	// 	network := v1.Group("/network")
-	// 	{
-	// 		network.GET("/stats", h.GetNetworkStats)
-	// 	}
-	// }
-}
-
-// healthCheck returns the server health status.
-func (s *Server) healthCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"status":  "ok",
-		"service": "v6coin-rpc",
-		"time":    time.Now().UTC().Format(time.RFC3339),
-	})
-}
-
 // Start starts the RPC server.
 func (s *Server) Start(ctx context.Context) error {
-	server := &http.Server{
-		Addr:         fmt.Sprintf(":%d", s.httpPort),
+	httpServer := &http.Server{
+		Addr:         s.httpAddr,
 		Handler:      s.router,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
@@ -111,7 +72,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Start server in a goroutine
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			panic(fmt.Sprintf("Failed to start RPC server: %v", err))
 		}
 	}()
@@ -122,7 +83,7 @@ func (s *Server) Start(ctx context.Context) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(shutdownCtx); err != nil {
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("server shutdown failed: %w", err)
 	}
 
