@@ -10,6 +10,11 @@ type StateDB interface {
 	GetAccount(address []byte) (*Account, error)
 	SetAccount(address []byte, account *Account) error
 
+	// Convenience methods for account operations
+	GetBalance(address []byte) (uint64, error)
+	GetNonce(address []byte) (uint64, error)
+	HasAccount(address []byte) (bool, error)
+
 	// State operations
 	CurrentRoot() []byte
 	Commit() ([]byte, error)

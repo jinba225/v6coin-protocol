@@ -30,9 +30,6 @@ const (
 	DefaultDataDir       = "/tmp/v6coin"
 	DefaultNetworkPrefix = "2001:db8::"
 	DefaultMaxPeers      = 50
-	DefaultSeedPeers     = []string{
-		"2001:db8::1:1:38901",
-	}
 
 	// Genesis block
 	GenesisHeight    = 0
@@ -41,7 +38,10 @@ const (
 )
 
 var (
-	node *Node
+	node             *Node
+	DefaultSeedPeers = []string{
+		"2001:db8::1:1:38901",
+	}
 )
 
 // Node represents a V6Coin full node
@@ -618,7 +618,7 @@ func main() {
 		}
 
 	default:
-		fmt.Println("V6Coin Node v%s", Version)
+		fmt.Printf("V6Coin Node v%s\n", Version)
 		fmt.Println("\nUsage: node [command] [options]")
 		fmt.Println("\nCommands:")
 		fmt.Println("  start    Start node")
