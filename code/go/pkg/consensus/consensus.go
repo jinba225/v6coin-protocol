@@ -247,7 +247,11 @@ func NewNodeContribution(nodeID p2p.PeerID) *NodeContribution {
 func (nc *NodeContribution) CalculateScore() float64 {
 	nc.mu.Lock()
 	defer nc.mu.Unlock()
+	return nc.calculateScoreLocked()
+}
 
+// calculateScoreLocked calculates score without acquiring lock (must be called with lock held)
+func (nc *NodeContribution) calculateScoreLocked() float64 {
 	// 1. Online time score (60% weight)
 	onlineScore := math.Min(float64(nc.OnlineTime.Hours())/float64(OnlineWindow.Hours()), 1.0) * 0.6
 
@@ -268,7 +272,7 @@ func (nc *NodeContribution) UpdateOnlineTime(duration time.Duration) {
 	defer nc.mu.Unlock()
 	nc.OnlineTime += duration
 	nc.LastOnline = time.Now()
-	nc.CalculateScore()
+	nc.calculateScoreLocked() // 调用不加锁的内部方法
 }
 
 // UpdatePacketLoss updates the packet loss rate
@@ -276,7 +280,7 @@ func (nc *NodeContribution) UpdatePacketLoss(lossRate float64) {
 	nc.mu.Lock()
 	defer nc.mu.Unlock()
 	nc.PacketLoss = math.Max(0.0, math.Min(1.0, lossRate))
-	nc.CalculateScore()
+	nc.calculateScoreLocked() // 调用不加锁的内部方法
 }
 
 // AddForwardedBytes adds to the forwarded bytes count
@@ -284,7 +288,7 @@ func (nc *NodeContribution) AddForwardedBytes(bytes uint64) {
 	nc.mu.Lock()
 	defer nc.mu.Unlock()
 	nc.Forwarded += bytes
-	nc.CalculateScore()
+	nc.calculateScoreLocked() // 调用不加锁的内部方法
 }
 
 // NewValidatorSet creates a new validator set
