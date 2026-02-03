@@ -96,19 +96,24 @@ func HashSHA256(data []byte) []byte {
 	return hash[:]
 }
 
-// KeyPairFromPrivateKey creates a key pair from private key
+// KeyPairFromPrivateKey creates a key pair from private key seed
 func KeyPairFromPrivateKey(privateKey []byte) (*KeyPair, error) {
 	if len(privateKey) != 32 {
 		return nil, fmt.Errorf("invalid private key length: %d (expected 32)", len(privateKey))
 	}
 
-	privateKeyCopy := make(ed25519.PrivateKey, 32)
-	copy(privateKeyCopy, privateKey[:32])
+	// 从 32 字节种子生成 Ed25519 密钥对
+	// Ed25519 的私钥格式：种子(32字节) + 公钥(32字节) = 64字节
+	seed := make([]byte, 32)
+	copy(seed, privateKey)
+
+	// 使用标准库方法从种子生成密钥对
+	privateKeyFull := ed25519.NewKeyFromSeed(seed)
 	publicKey := make(ed25519.PublicKey, 32)
-	copy(publicKey, privateKeyCopy[32:])
+	copy(publicKey, privateKeyFull[32:])
 
 	return &KeyPair{
-		PrivateKey: privateKeyCopy,
+		PrivateKey: privateKeyFull,
 		PublicKey:  publicKey,
 	}, nil
 }

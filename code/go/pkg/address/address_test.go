@@ -22,7 +22,18 @@ func TestGenerateIID(t *testing.T) {
 }
 
 func TestGenerateAddress(t *testing.T) {
-	networkPrefix := net.ParseIP("2001:db8:85a3::/32")
+	// 使用 8 字节网络前缀（64位），而不是完整的 16 字节 IPv6 地址
+	networkPrefix := make(net.IP, 8)
+	// 2001:db8:85a3:0:0:0:0:0 的前 8 字节
+	networkPrefix[0] = 0x20
+	networkPrefix[1] = 0x01
+	networkPrefix[2] = 0x0d
+	networkPrefix[3] = 0xb8
+	networkPrefix[4] = 0x85
+	networkPrefix[5] = 0xa3
+	networkPrefix[6] = 0x00
+	networkPrefix[7] = 0x00
+
 	privateKey := make([]byte, 32)
 	for i := 0; i < 32; i++ {
 		privateKey[i] = byte(i)
@@ -39,7 +50,7 @@ func TestGenerateAddress(t *testing.T) {
 }
 
 func TestGenerateAddressInvalidPrefix(t *testing.T) {
-	networkPrefix := net.IPv4(192, 168, 1, 1) // Wrong length
+	networkPrefix := net.IPv4(192, 168, 1, 1) // Only 4 bytes, should be 8
 	privateKey := make([]byte, 32)
 
 	_, err := GenerateAddress(networkPrefix, privateKey)
@@ -47,16 +58,31 @@ func TestGenerateAddressInvalidPrefix(t *testing.T) {
 }
 
 func TestGenerateAddressInvalidKey(t *testing.T) {
-	networkPrefix := net.ParseIP("2001:db8::/32")
-	privateKey := make([]byte, 16) // Wrong length
+	// 使用 8 字节网络前缀
+	networkPrefix := make(net.IP, 8)
+	networkPrefix[0] = 0x20
+	networkPrefix[1] = 0x01
+	networkPrefix[2] = 0x0d
+	networkPrefix[3] = 0xb8
+
+	privateKey := make([]byte, 16) // Wrong length, should be 32
 
 	_, err := GenerateAddress(networkPrefix, privateKey)
 	assert.Error(t, err)
 }
 
 func TestGetFullAddress(t *testing.T) {
+	// 使用 8 字节网络前缀
+	networkPrefix := make(net.IP, 8)
+	networkPrefix[0] = 0x20
+	networkPrefix[1] = 0x01
+	networkPrefix[2] = 0x0d
+	networkPrefix[3] = 0xb8
+	networkPrefix[4] = 0x85
+	networkPrefix[5] = 0xa3
+
 	addr := &V6Address{
-		NetworkPrefix: net.ParseIP("2001:db8::/32"),
+		NetworkPrefix: networkPrefix,
 		IID:           0x123456789ABCDEF0,
 		IsTemporary:   false,
 		AddressType:   AddressTypeCore,
@@ -64,11 +90,13 @@ func TestGetFullAddress(t *testing.T) {
 	}
 
 	fullAddr := addr.GetFullAddress()
-	expectedPrefix := []byte{0x20, 0x01, 0x0d, 0xb8, 0x85, 0xa3}
+	// 修正：前缀应该是 8 字节，不是 6 字节
+	expectedPrefix := []byte{0x20, 0x01, 0x0d, 0xb8, 0x85, 0xa3, 0x00, 0x00}
 
 	assert.Equal(t, 16, len(fullAddr))
-	assert.Equal(t, expectedPrefix, fullAddr[0:8])
-	assert.Equal(t, []byte{0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0}, fullAddr[8:16])
+	// 转换为字节切片进行比较
+	assert.Equal(t, expectedPrefix, []byte(fullAddr[0:8]))
+	assert.Equal(t, []byte{0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0}, []byte(fullAddr[8:16]))
 }
 
 func TestGetFullAddressDefaultPrefix(t *testing.T) {
@@ -126,7 +154,13 @@ func TestGenerateTemporaryAddressInvalidKey(t *testing.T) {
 }
 
 func TestGenerateTemporaryAddressWithPrefix(t *testing.T) {
-	networkPrefix := net.ParseIP("2001:db8::/32")
+	// 使用 8 字节网络前缀
+	networkPrefix := make(net.IP, 8)
+	networkPrefix[0] = 0x20
+	networkPrefix[1] = 0x01
+	networkPrefix[2] = 0x0d
+	networkPrefix[3] = 0xb8
+
 	corePrivateKey := make([]byte, 32)
 	for i := 0; i < 32; i++ {
 		corePrivateKey[i] = byte(i)
@@ -149,11 +183,22 @@ func TestCreateLogicalSubnet(t *testing.T) {
 		CreatedAt:   time.Now(),
 	}
 
-	prefixes := []net.IP{
-		net.ParseIP("2001:db8::/32"),
-		net.ParseIP("2001:db8::/33"),
-		net.ParseIP("2001:db8::/34"),
-	}
+	// 使用 8 字节网络前缀
+	prefix1 := make(net.IP, 8)
+	prefix1[0] = 0x20
+	prefix1[1] = 0x01
+	prefix1[2] = 0x0d
+	prefix1[3] = 0xb8
+
+	prefix2 := make(net.IP, 8)
+	copy(prefix2, prefix1)
+	prefix2[7] = 0x01
+
+	prefix3 := make(net.IP, 8)
+	copy(prefix3, prefix1)
+	prefix3[7] = 0x02
+
+	prefixes := []net.IP{prefix1, prefix2, prefix3}
 
 	subnet, err := CreateLogicalSubnet(coreAddr, prefixes)
 	assert.NoError(t, err)
@@ -196,10 +241,18 @@ func TestGenerateSubnetAddress(t *testing.T) {
 		CreatedAt:   time.Now(),
 	}
 
-	prefixes := []net.IP{
-		net.ParseIP("2001:db8::/32"),
-		net.ParseIP("2001:db8::/33"),
-	}
+	// 使用 8 字节网络前缀
+	prefix1 := make(net.IP, 8)
+	prefix1[0] = 0x20
+	prefix1[1] = 0x01
+	prefix1[2] = 0x0d
+	prefix1[3] = 0xb8
+
+	prefix2 := make(net.IP, 8)
+	copy(prefix2, prefix1)
+	prefix2[7] = 0x01
+
+	prefixes := []net.IP{prefix1, prefix2}
 
 	subnet, _ := CreateLogicalSubnet(coreAddr, prefixes)
 
@@ -228,10 +281,18 @@ func TestIsInSameLogicalSubnet(t *testing.T) {
 		IID: 0x123456789ABCDEF0,
 	}
 
-	prefixes := []net.IP{
-		net.ParseIP("2001:db8::/32"),
-		net.ParseIP("2001:db8::/33"),
-	}
+	// 使用 8 字节网络前缀
+	prefix1 := make(net.IP, 8)
+	prefix1[0] = 0x20
+	prefix1[1] = 0x01
+	prefix1[2] = 0x0d
+	prefix1[3] = 0xb8
+
+	prefix2 := make(net.IP, 8)
+	copy(prefix2, prefix1)
+	prefix2[7] = 0x01
+
+	prefixes := []net.IP{prefix1, prefix2}
 
 	subnet, _ := CreateLogicalSubnet(coreAddr, prefixes)
 
@@ -243,9 +304,14 @@ func TestIsInSameLogicalSubnet(t *testing.T) {
 }
 
 func TestIsInSameLogicalSubnetDifferentIID(t *testing.T) {
-	prefixes := []net.IP{
-		net.ParseIP("2001:db8::/32"),
-	}
+	// 使用 8 字节网络前缀
+	prefix1 := make(net.IP, 8)
+	prefix1[0] = 0x20
+	prefix1[1] = 0x01
+	prefix1[2] = 0x0d
+	prefix1[3] = 0xb8
+
+	prefixes := []net.IP{prefix1}
 
 	coreAddr := &V6Address{
 		IID: 0x123456789ABCDEF0,
@@ -268,8 +334,19 @@ func TestCreateMigration(t *testing.T) {
 		privateKey[i] = byte(i)
 	}
 
+	// 使用 8 字节网络前缀
+	fromPrefix := make(net.IP, 8)
+	fromPrefix[0] = 0x20
+	fromPrefix[1] = 0x01
+	fromPrefix[2] = 0x0d
+	fromPrefix[3] = 0xb8
+
+	toPrefix := make(net.IP, 8)
+	copy(toPrefix, fromPrefix)
+	toPrefix[7] = 0x01
+
 	fromAddr := &V6Address{
-		NetworkPrefix: net.ParseIP("2001:db8::/32"),
+		NetworkPrefix: fromPrefix,
 		IID:           0x123456789ABCDEF0,
 		IsTemporary:   false,
 		AddressType:   AddressTypeCore,
@@ -277,7 +354,7 @@ func TestCreateMigration(t *testing.T) {
 	}
 
 	toAddr := &V6Address{
-		NetworkPrefix: net.ParseIP("2001:db8::/33"),
+		NetworkPrefix: toPrefix,
 		IID:           0x123456789ABCDEF0,
 		IsTemporary:   false,
 		AddressType:   AddressTypeCore,
@@ -302,12 +379,21 @@ func TestCreateMigrationNoAddresses(t *testing.T) {
 func TestCreateMigrationInvalidKey(t *testing.T) {
 	privateKey := make([]byte, 16)
 
+	// 使用 8 字节网络前缀
+	fromPrefix := make(net.IP, 8)
+	fromPrefix[0] = 0x20
+	fromPrefix[1] = 0x01
+
+	toPrefix := make(net.IP, 8)
+	copy(toPrefix, fromPrefix)
+	toPrefix[7] = 0x01
+
 	fromAddr := &V6Address{
-		NetworkPrefix: net.ParseIP("2001:db8::/32"),
+		NetworkPrefix: fromPrefix,
 	}
 
 	toAddr := &V6Address{
-		NetworkPrefix: net.ParseIP("2001:db8::/33"),
+		NetworkPrefix: toPrefix,
 	}
 
 	_, err := CreateMigration(fromAddr, toAddr, privateKey)
@@ -323,13 +409,21 @@ func TestValidateMigration(t *testing.T) {
 	kp, _ := crypto.KeyPairFromPrivateKey(privateKey)
 	publicKey := kp.PublicKey
 
-	fromAddr := net.ParseIP("2001:db8::1234:5678::abcd")
-	toAddr := net.ParseIP("2001:db8:1234:5678::abce")
+	// 使用 8 字节网络前缀
+	fromPrefix := make(net.IP, 8)
+	fromPrefix[0] = 0x20
+	fromPrefix[1] = 0x01
+	fromPrefix[2] = 0x0d
+	fromPrefix[3] = 0xb8
+
+	toPrefix := make(net.IP, 8)
+	copy(toPrefix, fromPrefix)
+	toPrefix[7] = 0x01
 
 	migration, _ := CreateMigration(&V6Address{
-		NetworkPrefix: fromAddr[0:8],
+		NetworkPrefix: fromPrefix,
 	}, &V6Address{
-		NetworkPrefix: toAddr[0:8],
+		NetworkPrefix: toPrefix,
 	}, privateKey)
 
 	err := ValidateMigration(migration, publicKey)
@@ -339,8 +433,15 @@ func TestValidateMigration(t *testing.T) {
 func TestValidateMigrationInvalidSignature(t *testing.T) {
 	publicKey := make([]byte, 32)
 
-	fromAddr := net.ParseIP("2001:db8::1234:5678::abcd")
-	toAddr := net.ParseIP("2001:db8::1234:5678::abce")
+	// 使用完整的 16 字节 IPv6 地址
+	fromAddr := make(net.IP, 16)
+	fromAddr[0] = 0x20
+	fromAddr[1] = 0x01
+
+	toAddr := make(net.IP, 16)
+	toAddr[0] = 0x20
+	toAddr[1] = 0x01
+	toAddr[15] = 0x01
 
 	migration := &AddressMigration{
 		FromAddress: fromAddr,
@@ -362,8 +463,15 @@ func TestValidateMigrationOldTimestamp(t *testing.T) {
 	kp, _ := crypto.KeyPairFromPrivateKey(privateKey)
 	publicKey := kp.PublicKey
 
-	fromAddr := net.ParseIP("2001:db8::1234:5678::abcd")
-	toAddr := net.ParseIP("2001:db8::1234:5678::abce")
+	// 使用完整的 16 字节 IPv6 地址
+	fromAddr := make(net.IP, 16)
+	fromAddr[0] = 0x20
+	fromAddr[1] = 0x01
+
+	toAddr := make(net.IP, 16)
+	toAddr[0] = 0x20
+	toAddr[1] = 0x01
+	toAddr[15] = 0x01
 
 	migration := &AddressMigration{
 		FromAddress: fromAddr,
@@ -385,8 +493,15 @@ func TestValidateMigrationNilMigration(t *testing.T) {
 }
 
 func TestValidateAddress(t *testing.T) {
+	// 使用 8 字节网络前缀
+	networkPrefix := make(net.IP, 8)
+	networkPrefix[0] = 0x20
+	networkPrefix[1] = 0x01
+	networkPrefix[2] = 0x0d
+	networkPrefix[3] = 0xb8
+
 	validAddr := &V6Address{
-		NetworkPrefix: net.ParseIP("2001:db8::/32"),
+		NetworkPrefix: networkPrefix,
 		IID:           0x123456789ABCDEF0,
 		IsTemporary:   false,
 		AddressType:   AddressTypeCore,
@@ -399,8 +514,13 @@ func TestValidateAddress(t *testing.T) {
 }
 
 func TestValidateAddressInvalidIID(t *testing.T) {
+	// 使用 8 字节网络前缀
+	networkPrefix := make(net.IP, 8)
+	networkPrefix[0] = 0x20
+	networkPrefix[1] = 0x01
+
 	invalidAddr := &V6Address{
-		NetworkPrefix: net.ParseIP("2001:db8::/32"),
+		NetworkPrefix: networkPrefix,
 		IID:           0x123456789ABCDEF1, // bit 0 = 1 (multicast)
 		IsTemporary:   false,
 		AddressType:   AddressTypeCore,
@@ -438,7 +558,10 @@ func TestValidateExpiredTemporaryAddress(t *testing.T) {
 }
 
 func TestExtractIID(t *testing.T) {
-	fullAddr := net.ParseIP("2001:db8:1234:5678::abcd:1234:5678:1234")
+	// 使用有效的 IPv6 地址
+	fullAddr := net.ParseIP("2001:0db8:1234:5678:abcd:1234:5678:1234")
+	assert.NotNil(t, fullAddr)
+
 	expectedIID := binary.BigEndian.Uint64(fullAddr[8:16])
 
 	iid := ExtractIID(fullAddr)
@@ -446,7 +569,10 @@ func TestExtractIID(t *testing.T) {
 }
 
 func TestExtractNetworkPrefix(t *testing.T) {
-	fullAddr := net.ParseIP("2001:db8:1234:5678::abcd:1234:5678:1234")
+	// 使用有效的 IPv6 地址
+	fullAddr := net.ParseIP("2001:0db8:1234:5678:abcd:1234:5678:1234")
+	assert.NotNil(t, fullAddr)
+
 	expectedPrefix := fullAddr[0:8]
 
 	prefix := ExtractNetworkPrefix(fullAddr)
@@ -482,7 +608,12 @@ func TestStringTemporary(t *testing.T) {
 }
 
 func TestEquals(t *testing.T) {
-	networkPrefix := net.ParseIP("2001:db8::/32")
+	// 使用 8 字节网络前缀
+	networkPrefix := make(net.IP, 8)
+	networkPrefix[0] = 0x20
+	networkPrefix[1] = 0x01
+	networkPrefix[2] = 0x0d
+	networkPrefix[3] = 0xb8
 
 	addr1 := &V6Address{
 		NetworkPrefix: networkPrefix,
@@ -507,7 +638,12 @@ func TestEquals(t *testing.T) {
 }
 
 func TestEqualsDifferent(t *testing.T) {
-	networkPrefix := net.ParseIP("2001:db8::/32")
+	// 使用 8 字节网络前缀
+	networkPrefix := make(net.IP, 8)
+	networkPrefix[0] = 0x20
+	networkPrefix[1] = 0x01
+	networkPrefix[2] = 0x0d
+	networkPrefix[3] = 0xb8
 
 	addr1 := &V6Address{
 		NetworkPrefix: networkPrefix,
@@ -531,7 +667,12 @@ func TestEqualsDifferent(t *testing.T) {
 }
 
 func TestEqualsTemporaryDifferent(t *testing.T) {
-	networkPrefix := net.ParseIP("2001:db8::/32")
+	// 使用 8 字节网络前缀
+	networkPrefix := make(net.IP, 8)
+	networkPrefix[0] = 0x20
+	networkPrefix[1] = 0x01
+	networkPrefix[2] = 0x0d
+	networkPrefix[3] = 0xb8
 
 	addr1 := &V6Address{
 		NetworkPrefix: networkPrefix,
@@ -558,15 +699,24 @@ func TestGetMigrationData(t *testing.T) {
 	timestamp := uint64(1640000000)
 
 	data := GetMigrationData(fromAddr, toAddr, timestamp)
-	assert.Equal(t, 32, len(data))
-	assert.Equal(t, fromAddr, data[0:32])
-	assert.Equal(t, toAddr, data[32:64])
-	assert.Equal(t, []byte{0x61, 0xd0, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00}, data[64:72])
+	// 总长度应该是 16+16+8 = 40 字节
+	assert.Equal(t, 40, len(data))
+	// 比较字节切片，而不是 net.IP
+	assert.Equal(t, []byte(fromAddr[0:16]), data[0:16])
+	assert.Equal(t, []byte(toAddr[0:16]), data[16:32])
+	assert.Equal(t, []byte{0x00, 0x00, 0x00, 0x00, 0x61, 0xc0, 0x6a, 0x00}, data[32:40])
 }
 
 func TestAddressRoundtrip(t *testing.T) {
+	// 使用 8 字节网络前缀
+	networkPrefix := make(net.IP, 8)
+	networkPrefix[0] = 0x20
+	networkPrefix[1] = 0x01
+	networkPrefix[2] = 0x0d
+	networkPrefix[3] = 0xb8
+
 	original := &V6Address{
-		NetworkPrefix: net.ParseIP("2001:db8::/32"),
+		NetworkPrefix: networkPrefix,
 		IID:           0x123456789ABCDEF0,
 		IsTemporary:   true,
 		ExpiresAt:     time.Now().Add(24 * time.Hour),
@@ -603,7 +753,13 @@ func BenchmarkGenerateIID(b *testing.B) {
 }
 
 func BenchmarkGenerateAddress(b *testing.B) {
-	networkPrefix := net.ParseIP("2001:db8::/32")
+	// 使用 8 字节网络前缀
+	networkPrefix := make(net.IP, 8)
+	networkPrefix[0] = 0x20
+	networkPrefix[1] = 0x01
+	networkPrefix[2] = 0x0d
+	networkPrefix[3] = 0xb8
+
 	privateKey := make([]byte, 32)
 	for i := 0; i < 32; i++ {
 		privateKey[i] = byte(i)
@@ -616,8 +772,15 @@ func BenchmarkGenerateAddress(b *testing.B) {
 }
 
 func BenchmarkGetFullAddress(b *testing.B) {
+	// 使用 8 字节网络前缀
+	networkPrefix := make(net.IP, 8)
+	networkPrefix[0] = 0x20
+	networkPrefix[1] = 0x01
+	networkPrefix[2] = 0x0d
+	networkPrefix[3] = 0xb8
+
 	addr := &V6Address{
-		NetworkPrefix: net.ParseIP("2001:db8::/32"),
+		NetworkPrefix: networkPrefix,
 		IID:           0x123456789ABCDEF0,
 		IsTemporary:   false,
 		CreatedAt:     time.Now(),

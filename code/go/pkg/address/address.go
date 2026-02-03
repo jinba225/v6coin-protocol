@@ -348,16 +348,16 @@ func (addr *V6Address) Equals(other *V6Address) bool {
 	if addr == nil || other == nil {
 		return false
 	}
-	_ = addr.IsTemporary
 	return addr.IID == other.IID &&
 		addr.NetworkPrefix.Equal(other.NetworkPrefix) &&
+		addr.IsTemporary == other.IsTemporary &&
 		addr.Index == other.Index
 }
 
 func GetMigrationData(fromAddr, toAddr net.IP, timestamp uint64) []byte {
-	data := make([]byte, 32+32+8)
-	copy(data[0:32], fromAddr)
-	copy(data[32:64], toAddr)
-	binary.BigEndian.PutUint64(data[64:72], timestamp)
+	data := make([]byte, 16+16+8)
+	copy(data[0:16], fromAddr)
+	copy(data[16:32], toAddr)
+	binary.BigEndian.PutUint64(data[32:40], timestamp)
 	return data
 }
