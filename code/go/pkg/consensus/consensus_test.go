@@ -268,9 +268,13 @@ func TestCalculateBlockReward(t *testing.T) {
 		t.Errorf("Expected initial reward %d, got %d", 100*1000000000, initialReward)
 	}
 
-	halvedReward := CalculateBlockReward(12600000)
+	// 计算实际的减半间隔：4年 = (4 * 365 * 24 * 3600) / 10 = 12,614,400 个区块
+	halvingInterval := uint64((4 * 365 * 24 * 3600) / 10)
+
+	// 测试第一个减半点
+	halvedReward := CalculateBlockReward(halvingInterval)
 	if halvedReward*2 != initialReward {
-		t.Errorf("Expected halved reward to be half of initial")
+		t.Errorf("Expected halved reward to be half of initial, got %d, expected %d", halvedReward, initialReward/2)
 	}
 }
 
@@ -293,7 +297,14 @@ func TestConsensusEngine(t *testing.T) {
 func TestAddTransaction(t *testing.T) {
 	ce := NewConsensusEngine()
 
-	tx := NewTransaction(TxTypeOnline, net.ParseIP("2001:db8::1"), net.ParseIP("2001:db8::2"), 1000, 10, 1)
+	// 创建交易并添加签名（虽然测试中可以跳过签名验证）
+	fromAddr := net.ParseIP("2001:db8::1")
+	toAddr := net.ParseIP("2001:db8::2")
+
+	tx := NewTransaction(TxTypeOnline, fromAddr, toAddr, 1000, 10, 1)
+
+	// 为交易添加签名（使用空签名字节以通过验证）
+	tx.Signature = make([]byte, 64) // 64 字节的空签名
 
 	err := ce.AddTransaction(tx)
 	if err != nil {
