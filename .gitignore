@@ -20,9 +20,14 @@ Thumbs.db
 *.dylib
 *.exe
 build/
+_build/
 dist/
 bin/
 lib/
+*.test
+
+# Sisyphus CI/CD
+.sisyphus/
 
 # Go
 go.work

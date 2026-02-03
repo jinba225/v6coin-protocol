@@ -19,9 +19,12 @@ cd v6coin-protocol
 ### 构建
 
 ```bash
-# 构建 Go 版本
+# 方式 1：使用构建脚本（推荐）
+bash scripts/build/go.sh
+
+# 方式 2：手动构建 Go 版本
 cd code/go
-go build -o ../../bin/v6coin-node ./cmd/node
+go build -o ../../build/go/bin/v6coin-node ./cmd/node
 
 # 构建 C 版本
 cd ../c
@@ -32,9 +35,12 @@ cmake --build build
 ### 运行测试
 
 ```bash
-# Go 测试
+# 方式 1：运行测试脚本（推荐）
+bash scripts/test/run-tests.sh
+
+# 方式 2：手动运行 Go 测试
 cd code/go
-go test -v -race -cover ./...
+go test -v -race -coverprofile=../../build/go/coverage.out ./...
 
 # C 测试
 cd code/c
