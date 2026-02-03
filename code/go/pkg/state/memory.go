@@ -125,13 +125,14 @@ func (db *MemoryStateDB) updateRootHash() {
 	// In production, use MPT for proper state root calculation
 	// For now, just keep the existing hash or generate a new one
 
-	// Placeholder: use a simple hash based on account count and balance
-	db.rootHash = []byte{
-		byte(len(db.accounts) >> 24),
-		byte(len(db.accounts) >> 16),
-		byte(len(db.accounts) >> 8),
-		byte(len(db.accounts)),
-	}
+	// Create a 32-byte root hash based on account count
+	newRootHash := make([]byte, 32)
+	count := len(db.accounts)
+	newRootHash[0] = byte(count >> 24)
+	newRootHash[1] = byte(count >> 16)
+	newRootHash[2] = byte(count >> 8)
+	newRootHash[3] = byte(count)
+	db.rootHash = newRootHash
 }
 
 // GetAccountCount returns the number of accounts

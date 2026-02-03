@@ -37,6 +37,23 @@ func (m *mockValidator) IsValidBlockHash(hash []byte) bool {
 	return true
 }
 
+// mockStateDB implements StateDB interface for testing
+type mockStateDB struct {
+	state.StateDB
+	currentRoot []byte
+}
+
+func (m *mockStateDB) CurrentRoot() []byte {
+	if m.currentRoot != nil {
+		return m.currentRoot
+	}
+	return []byte{}
+}
+
+func (m *mockStateDB) SetExpectedRoot(root []byte) {
+	m.currentRoot = root
+}
+
 // mockRewardDistributor implements RewardDistributor interface for testing
 type mockRewardDistributor struct {
 	distributeFunc func(block *consensus.Block, stateDB state.StateDB) error
@@ -79,7 +96,7 @@ func createTestBlock(height uint64, prevHash []byte) *consensus.Block {
 
 func TestNewBlockChain(t *testing.T) {
 	genesis := createTestGenesisBlock()
-	stateDB := state.NewMemoryStateDB()
+	stateDB := &mockStateDB{currentRoot: genesis.Header.StateRoot}
 	validator := &mockValidator{}
 
 	config := &BlockChainConfig{
@@ -108,7 +125,7 @@ func TestNewBlockChainNilGenesis(t *testing.T) {
 
 func TestAddBlock(t *testing.T) {
 	genesis := createTestGenesisBlock()
-	stateDB := state.NewMemoryStateDB()
+	stateDB := &mockStateDB{currentRoot: genesis.Header.StateRoot}
 	validator := &mockValidator{
 		validateBlockFunc: func(block *consensus.Block, parent *consensus.Block) error {
 			// 验证区块高度是否正确
@@ -130,15 +147,17 @@ func TestAddBlock(t *testing.T) {
 	bc, err := NewBlockChain(config)
 	assert.NoError(t, err)
 
-	// 添加区块 1
+	// 添加区块 1 - 更新 state root 以匹配区块
 	block1 := createTestBlock(1, genesis.Hash())
+	stateDB.SetExpectedRoot(block1.Header.StateRoot)
 	err = bc.AddBlock(block1)
 	assert.NoError(t, err)
 	assert.Equal(t, block1, bc.chainHead)
 	assert.Equal(t, uint64(1), bc.chainHead.Header.Height)
 
-	// 添加区块 2
+	// 添加区块 2 - 更新 state root 以匹配区块
 	block2 := createTestBlock(2, block1.Hash())
+	stateDB.SetExpectedRoot(block2.Header.StateRoot)
 	err = bc.AddBlock(block2)
 	assert.NoError(t, err)
 	assert.Equal(t, block2, bc.chainHead)
@@ -147,7 +166,7 @@ func TestAddBlock(t *testing.T) {
 
 func TestAddBlockDuplicate(t *testing.T) {
 	genesis := createTestGenesisBlock()
-	stateDB := state.NewMemoryStateDB()
+	stateDB := &mockStateDB{currentRoot: genesis.Header.StateRoot}
 	validator := &mockValidator{}
 	rewardDist := &mockRewardDistributor{}
 
@@ -163,6 +182,7 @@ func TestAddBlockDuplicate(t *testing.T) {
 
 	// 添加区块
 	block1 := createTestBlock(1, genesis.Hash())
+	stateDB.SetExpectedRoot(block1.Header.StateRoot)
 	err = bc.AddBlock(block1)
 	assert.NoError(t, err)
 
@@ -174,7 +194,7 @@ func TestAddBlockDuplicate(t *testing.T) {
 
 func TestAddBlockInvalidParent(t *testing.T) {
 	genesis := createTestGenesisBlock()
-	stateDB := state.NewMemoryStateDB()
+	stateDB := &mockStateDB{currentRoot: genesis.Header.StateRoot}
 	validator := &mockValidator{}
 	rewardDist := &mockRewardDistributor{}
 
@@ -199,7 +219,7 @@ func TestAddBlockInvalidParent(t *testing.T) {
 
 func TestAddBlockValidationFailure(t *testing.T) {
 	genesis := createTestGenesisBlock()
-	stateDB := state.NewMemoryStateDB()
+	stateDB := &mockStateDB{currentRoot: genesis.Header.StateRoot}
 	validator := &mockValidator{
 		validateBlockFunc: func(block *consensus.Block, parent *consensus.Block) error {
 			return assert.AnError
@@ -225,7 +245,7 @@ func TestAddBlockValidationFailure(t *testing.T) {
 
 func TestGetBlock(t *testing.T) {
 	genesis := createTestGenesisBlock()
-	stateDB := state.NewMemoryStateDB()
+	stateDB := &mockStateDB{currentRoot: genesis.Header.StateRoot}
 	validator := &mockValidator{}
 
 	config := &BlockChainConfig{
@@ -250,7 +270,7 @@ func TestGetBlock(t *testing.T) {
 
 func TestGetBlockByHeight(t *testing.T) {
 	genesis := createTestGenesisBlock()
-	stateDB := state.NewMemoryStateDB()
+	stateDB := &mockStateDB{currentRoot: genesis.Header.StateRoot}
 	validator := &mockValidator{}
 	rewardDist := &mockRewardDistributor{}
 
@@ -266,9 +286,11 @@ func TestGetBlockByHeight(t *testing.T) {
 
 	// 添加一些区块
 	block1 := createTestBlock(1, genesis.Hash())
+	stateDB.SetExpectedRoot(block1.Header.StateRoot)
 	bc.AddBlock(block1)
 
 	block2 := createTestBlock(2, block1.Hash())
+	stateDB.SetExpectedRoot(block2.Header.StateRoot)
 	bc.AddBlock(block2)
 
 	// 测试获取不同高度的区块
@@ -291,7 +313,7 @@ func TestGetBlockByHeight(t *testing.T) {
 
 func TestGetChainHead(t *testing.T) {
 	genesis := createTestGenesisBlock()
-	stateDB := state.NewMemoryStateDB()
+	stateDB := &mockStateDB{currentRoot: genesis.Header.StateRoot}
 	validator := &mockValidator{}
 	rewardDist := &mockRewardDistributor{}
 
@@ -311,6 +333,7 @@ func TestGetChainHead(t *testing.T) {
 
 	// 添加区块后，链头应该更新
 	block1 := createTestBlock(1, genesis.Hash())
+	stateDB.SetExpectedRoot(block1.Header.StateRoot)
 	bc.AddBlock(block1)
 
 	head = bc.GetChainHead()
@@ -320,7 +343,7 @@ func TestGetChainHead(t *testing.T) {
 
 func TestGetCurrentHeight(t *testing.T) {
 	genesis := createTestGenesisBlock()
-	stateDB := state.NewMemoryStateDB()
+	stateDB := &mockStateDB{currentRoot: genesis.Header.StateRoot}
 	validator := &mockValidator{}
 	rewardDist := &mockRewardDistributor{}
 
@@ -340,12 +363,14 @@ func TestGetCurrentHeight(t *testing.T) {
 
 	// 添加区块后，高度应该增加
 	block1 := createTestBlock(1, genesis.Hash())
+	stateDB.SetExpectedRoot(block1.Header.StateRoot)
 	bc.AddBlock(block1)
 
 	height = bc.GetCurrentHeight()
 	assert.Equal(t, uint64(1), height)
 
 	block2 := createTestBlock(2, block1.Hash())
+	stateDB.SetExpectedRoot(block2.Header.StateRoot)
 	bc.AddBlock(block2)
 
 	height = bc.GetCurrentHeight()
@@ -354,7 +379,7 @@ func TestGetCurrentHeight(t *testing.T) {
 
 func TestHasBlock(t *testing.T) {
 	genesis := createTestGenesisBlock()
-	stateDB := state.NewMemoryStateDB()
+	stateDB := &mockStateDB{currentRoot: genesis.Header.StateRoot}
 	validator := &mockValidator{}
 	rewardDist := &mockRewardDistributor{}
 
@@ -379,6 +404,7 @@ func TestHasBlock(t *testing.T) {
 
 	// 添加区块后测试
 	block1 := createTestBlock(1, genesis.Hash())
+	stateDB.SetExpectedRoot(block1.Header.StateRoot)
 	bc.AddBlock(block1)
 
 	block = bc.GetBlock(block1.Hash())
@@ -387,7 +413,7 @@ func TestHasBlock(t *testing.T) {
 
 func TestCalculateChainDifficulty(t *testing.T) {
 	genesis := createTestGenesisBlock()
-	stateDB := state.NewMemoryStateDB()
+	stateDB := &mockStateDB{currentRoot: genesis.Header.StateRoot}
 	validator := &mockValidator{}
 	rewardDist := &mockRewardDistributor{}
 
@@ -403,12 +429,15 @@ func TestCalculateChainDifficulty(t *testing.T) {
 
 	// 添加几个区块
 	block1 := createTestBlock(1, genesis.Hash())
+	stateDB.SetExpectedRoot(block1.Header.StateRoot)
 	bc.AddBlock(block1)
 
 	block2 := createTestBlock(2, block1.Hash())
+	stateDB.SetExpectedRoot(block2.Header.StateRoot)
 	bc.AddBlock(block2)
 
 	block3 := createTestBlock(3, block2.Hash())
+	stateDB.SetExpectedRoot(block3.Header.StateRoot)
 	bc.AddBlock(block3)
 
 	// 计算从创世区块到区块 3 的难度

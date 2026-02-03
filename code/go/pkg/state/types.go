@@ -49,11 +49,17 @@ func (a *Account) Copy() *Account {
 		return nil
 	}
 
+	// Copy CodeHash and StorageRoot to avoid sharing underlying arrays
+	codeHash := make([]byte, len(a.CodeHash))
+	copy(codeHash, a.CodeHash)
+	storageRoot := make([]byte, len(a.StorageRoot))
+	copy(storageRoot, a.StorageRoot)
+
 	return &Account{
 		Nonce:       a.Nonce,
 		Balance:     a.Balance,
-		CodeHash:    make([]byte, len(a.CodeHash)),
-		StorageRoot: make([]byte, len(a.StorageRoot)),
+		CodeHash:    codeHash,
+		StorageRoot: storageRoot,
 		LastUpdated: a.LastUpdated,
 	}
 }
