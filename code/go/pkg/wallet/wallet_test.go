@@ -343,8 +343,9 @@ func TestBuildMigrationTransaction(t *testing.T) {
 		t.Fatalf("expected 2 accounts, got %d", len(accounts))
 	}
 
+	// 使用 Address.String() 格式，因为 GetAccount 使用这个格式在 accountsIndex 中查找
 	fromAddrStr := accounts[0].Address.String()
-	toAddrStr := accounts[1].Address.String()
+	toAddrStr := accounts[1].Address.GetFullAddress().String()
 
 	txConfig := &TxConfig{
 		FromAddress: fromAddrStr,
@@ -458,14 +459,14 @@ func TestExportPrivateKey(t *testing.T) {
 
 	addrStr := accounts[0].Address.String()
 
-	// Export private key
+	// Export private key (Ed25519 format is 64 bytes: seed 32 + publicKey 32)
 	privateKey, err := wallet.ExportPrivateKey(addrStr, "")
 	if err != nil {
 		t.Fatalf("failed to export private key: %v", err)
 	}
 
-	if len(privateKey) != 32 {
-		t.Errorf("expected 32-byte private key, got %d", len(privateKey))
+	if len(privateKey) != 64 {
+		t.Errorf("expected 64-byte Ed25519 private key, got %d", len(privateKey))
 	}
 }
 
@@ -501,7 +502,7 @@ func TestExportPrivateKeyLocked(t *testing.T) {
 		t.Fatalf("failed to export private key: %v", err)
 	}
 
-	if len(privateKey) != 32 {
-		t.Errorf("expected 32-byte private key, got %d", len(privateKey))
+	if len(privateKey) != 64 {
+		t.Errorf("expected 64-byte Ed25519 private key, got %d", len(privateKey))
 	}
 }

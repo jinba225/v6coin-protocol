@@ -130,34 +130,52 @@ func (w *Wallet) CreateAccount(index uint32, label string, password string) erro
 	}
 
 	// Generate key pair from derived seed
-	kp, err := crypto.GenerateKeyPair()
-	if err != nil {
-		return fmt.Errorf("failed to generate key pair: %w", err)
-	}
-	// Override with derived seed if needed
+	var kp *crypto.KeyPair
 	if len(derivedSeed) >= 32 {
+		// Use derived seed to generate key pair
 		privateKey := derivedSeed[:32]
-		// Use private key directly
-		kp.PrivateKey = privateKey
+		newKp, err := crypto.KeyPairFromPrivateKey(privateKey)
+		if err != nil {
+			return fmt.Errorf("failed to derive key pair from private key: %w", err)
+		}
+		kp = newKp
+	} else {
+		// Fallback to random key pair
+		randomKp, err := crypto.GenerateKeyPair()
+		if err != nil {
+			return fmt.Errorf("failed to generate key pair: %w", err)
+		}
+		kp = randomKp
 	}
 
-	// Derive V6 address
-	v6Addr, err := address.GenerateAddress(w.networkPrefix, kp.PrivateKey)
+	// Derive V6 address from seed (not from full 64-byte private key)
+	// address.GenerateAddress expects 32-byte seed
+	var addrSeed []byte
+	if len(derivedSeed) >= 32 {
+		addrSeed = derivedSeed[:32]
+	} else {
+		// Fallback: extract seed from PrivateKey
+		addrSeed = kp.PrivateKey[:32]
+	}
+
+	v6Addr, err := address.GenerateAddress(w.networkPrefix, addrSeed)
 	if err != nil {
 		return fmt.Errorf("failed to derive address: %w", err)
 	}
 
 	// Encrypt private key if wallet is encrypted
-	privateKey := make([]byte, len(kp.PrivateKey))
-	copy(privateKey, kp.PrivateKey)
+	// Ed25519 PrivateKey is 64 bytes (seed 32 + publicKey 32)
+	// For signing, we need the 32-byte seed
+	privateKeyForStorage := make([]byte, len(kp.PrivateKey))
+	copy(privateKeyForStorage, kp.PrivateKey)
 	isEncrypted := false
 
 	if w.encrypted && w.passwordHash != nil {
-		encrypted, err := crypto.Encrypt(w.passwordHash, privateKey)
+		encrypted, err := crypto.Encrypt(w.passwordHash, privateKeyForStorage)
 		if err != nil {
 			return fmt.Errorf("failed to encrypt private key: %w", err)
 		}
-		privateKey = encrypted
+		privateKeyForStorage = encrypted
 		isEncrypted = true
 	}
 
@@ -165,7 +183,7 @@ func (w *Wallet) CreateAccount(index uint32, label string, password string) erro
 	account := &Account{
 		Address:       *v6Addr,
 		PublicKey:     kp.PublicKey,
-		PrivateKey:    privateKey,
+		PrivateKey:    privateKeyForStorage,
 		NetworkPrefix: w.networkPrefix,
 		Label:         label,
 		CreatedAt:     time.Now(),
@@ -361,13 +379,20 @@ func (w *Wallet) ExportPrivateKey(addrStr string, password string) ([]byte, erro
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.locked {
-		return nil, ErrWalletLocked
-	}
-
 	account, exists := w.accountsIndex[addrStr]
 	if !exists {
 		return nil, ErrAccountNotFound
+	}
+
+	// Check if wallet is locked and password provided
+	if w.locked && password != "" {
+		// Verify password and temporarily unlock
+		if !hashEqual(w.passwordHash, hashPassword(password)) {
+			return nil, ErrInvalidPassword
+		}
+		// Continue - password is correct, allow export
+	} else if w.locked {
+		return nil, ErrWalletLocked
 	}
 
 	// If account is encrypted, need password
@@ -447,7 +472,18 @@ func (w *Wallet) Sign(addrStr string, data []byte, password string) ([]byte, err
 		return nil, ErrPrivateKeyEmpty
 	}
 
-	signature, err := crypto.Sign(privateKey, data)
+	// Ed25519 private key is 64 bytes (32-byte seed + 32-byte publicKey)
+	// crypto.Sign expects 32-byte seed
+	var seed []byte
+	if len(privateKey) == 64 {
+		seed = privateKey[:32] // Use first 32 bytes as seed
+	} else if len(privateKey) == 32 {
+		seed = privateKey // Already a seed
+	} else {
+		return nil, fmt.Errorf("invalid private key length: %d (expected 32 or 64)", len(privateKey))
+	}
+
+	signature, err := crypto.Sign(seed, data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign: %w", err)
 	}
