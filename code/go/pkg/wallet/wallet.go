@@ -57,13 +57,18 @@ type WalletConfig struct {
 // NewWallet creates a new wallet
 func NewWallet(config *WalletConfig) (*Wallet, error) {
 	// Parse network prefix
-	networkPrefix := net.ParseIP(config.NetworkPrefix)
-	if networkPrefix == nil {
+	// net.ParseIP returns a 16-byte IPv6 address, we need the first 8 bytes as prefix
+	fullIP := net.ParseIP(config.NetworkPrefix)
+	if fullIP == nil {
 		return nil, errors.New("invalid network prefix")
 	}
-	if len(networkPrefix) != 8 {
-		return nil, errors.New("network prefix must be 64 bits (8 bytes)")
+	if len(fullIP) != 16 {
+		return nil, fmt.Errorf("network prefix must be an IPv6 address (16 bytes), got %d", len(fullIP))
 	}
+
+	// Extract first 8 bytes as network prefix
+	networkPrefix := make(net.IP, 8)
+	copy(networkPrefix, fullIP[0:8])
 
 	w := &Wallet{
 		accounts:      make([]*Account, 0),
