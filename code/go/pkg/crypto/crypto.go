@@ -143,3 +143,21 @@ func Verify(publicKey []byte, message, signature []byte) bool {
 
 	return ed25519.Verify(publicKey, message, signature)
 }
+
+// IsValidSignatureFormat checks if a signature has valid Ed25519 format
+func IsValidSignatureFormat(signature []byte) bool {
+	// Ed25519 签名固定 64 字节
+	if len(signature) != 64 {
+		return false
+	}
+
+	// 基本格式检查（非空）
+	for i := 0; i < 64; i++ {
+		if signature[i] != 0 {
+			return true
+		}
+	}
+
+	// 全零签名无效
+	return false
+}
