@@ -431,7 +431,21 @@ func TestValidateMigration(t *testing.T) {
 }
 
 func TestValidateMigrationInvalidSignature(t *testing.T) {
-	publicKey := make([]byte, 32)
+	// 创建一个私钥用于签名
+	privateKey := make([]byte, 32)
+	for i := 0; i < 32; i++ {
+		privateKey[i] = byte(i)
+	}
+
+	// 获取对应的公钥
+	kp, _ := crypto.KeyPairFromPrivateKey(privateKey)
+	publicKey := kp.PublicKey
+
+	// 使用不同的私钥创建签名（这样签名将不匹配）
+	differentPrivateKey := make([]byte, 32)
+	for i := 0; i < 32; i++ {
+		differentPrivateKey[i] = byte(31 - i)
+	}
 
 	// 使用完整的 16 字节 IPv6 地址
 	fromAddr := make(net.IP, 16)
@@ -443,15 +457,22 @@ func TestValidateMigrationInvalidSignature(t *testing.T) {
 	toAddr[1] = 0x01
 	toAddr[15] = 0x01
 
+	data := GetMigrationData(fromAddr, toAddr, uint64(time.Now().Unix()))
+
+	// 使用不同的私钥签名
+	signature, _ := crypto.Sign(differentPrivateKey, data)
+
 	migration := &AddressMigration{
 		FromAddress: fromAddr,
 		ToAddress:   toAddr,
 		Timestamp:   uint64(time.Now().Unix()),
-		Signature:   make([]byte, 64),
+		Signature:   signature,
 	}
 
+	// 使用原始公钥验证（应该失败，因为签名是用不同私钥创建的）
 	err := ValidateMigration(migration, publicKey)
 	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid migration signature")
 }
 
 func TestValidateMigrationOldTimestamp(t *testing.T) {
