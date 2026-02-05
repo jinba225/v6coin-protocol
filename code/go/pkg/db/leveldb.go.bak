@@ -1,0 +1,350 @@
+package db
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/syndtr/goleveldb/leveldb/util"
+)
+
+// LevelDB 实现
+type levelDB struct {
+	db      *leveldb.DB
+	path    string
+	closed  bool
+	mu      sync.RWMutex
+	options *opt.Options
+}
+
+// NewLevelDB 创建 LevelDB 实例
+func NewLevelDB(path string, opts *Options) (KeyValueStore, error) {
+	// 创建目录
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create database directory: %w", err)
+	}
+
+	// 配置选项
+	options := &opt.Options{
+		// 缓存大小（默认 100 MB）
+		BlockCacheCapacity: opts.BlockCacheCapacity,
+		// 写缓冲区大小（默认 100 MB）
+		WriteBuffer: opts.WriteBuffer,
+		// 打开文件数限制
+		OpenFilesCacheCapacity: opts.OpenFilesLimit,
+		// 压缩选项
+		Compression: opts.Compression,
+	}
+
+	// 打开数据库
+	db, err := leveldb.OpenFile(path, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	return &levelDB{
+		db:      db,
+		path:    path,
+		options: options,
+	}, nil
+}
+
+// Options 数据库配置选项
+type Options struct {
+	// 缓存大小（字节）
+	BlockCacheCapacity int
+	// 写缓冲区大小（字节）
+	WriteBuffer int
+	// 打开文件数限制
+	OpenFilesLimit int
+	// 是否启用压缩
+	Compression opt.Compression
+}
+
+// DefaultOptions 默认配置
+func DefaultOptions() *Options {
+	return &Options{
+		BlockCacheCapacity:  100 * 1024 * 1024, // 100 MB
+		WriteBuffer:         100 * 1024 * 1024, // 100 MB
+		OpenFilesLimit:      500,
+		Compression:         opt.SnappyCompression,
+	}
+}
+
+// Put 存储键值对
+func (ldb *levelDB) Put(key, value []byte) error {
+	ldb.mu.Lock()
+	defer ldb.mu.Unlock()
+
+	if ldb.closed {
+		return ErrDatabaseClosed
+	}
+
+	return ldb.db.Put(key, value, nil)
+}
+
+// Get 获取值
+func (ldb *levelDB) Get(key []byte) ([]byte, error) {
+	ldb.mu.RLock()
+	defer ldb.mu.RUnlock()
+
+	if ldb.closed {
+		return nil, ErrDatabaseClosed
+	}
+
+	value, err := ldb.db.Get(key, nil)
+	if err == leveldb.ErrNotFound {
+		return nil, ErrNotFound
+	}
+	return value, err
+}
+
+// Has 检查键是否存在
+func (ldb *levelDB) Has(key []byte) (bool, error) {
+	ldb.mu.RLock()
+	defer ldb.mu.RUnlock()
+
+	if ldb.closed {
+		return false, ErrDatabaseClosed
+	}
+
+	return ldb.db.Has(key, nil)
+}
+
+// Delete 删除键
+func (ldb *levelDB) Delete(key []byte) error {
+	ldb.mu.Lock()
+	defer ldb.mu.Unlock()
+
+	if ldb.closed {
+		return ErrDatabaseClosed
+	}
+
+	return ldb.db.Delete(key, nil)
+}
+
+// NewBatch 创建批量操作
+func (ldb *levelDB) NewBatch() Batch {
+	ldb.mu.RLock()
+	defer ldb.mu.RUnlock()
+
+	if ldb.closed {
+		return &closedBatch{}
+	}
+
+	batch := new(leveldb.Batch)
+	return &levelDBBatch{
+		batch: batch,
+		ldb:   ldb,
+	}
+}
+
+// Write 执行批量操作
+func (ldb *levelDB) Write(batch Batch) error {
+	ldb.mu.Lock()
+	defer ldb.mu.Unlock()
+
+	if ldb.closed {
+		return ErrDatabaseClosed
+	}
+
+	ldbBatch, ok := batch.(*levelDBBatch)
+	if !ok {
+		return fmt.Errorf("invalid batch type")
+	}
+
+	return ldb.db.Write(ldbBatch.batch, nil)
+}
+
+// NewIterator 创建迭代器
+func (ldb *levelDB) NewIterator(prefix []byte) Iterator {
+	ldb.mu.RLock()
+	defer ldb.mu.RUnlock()
+
+	if ldb.closed {
+		return &closedIterator{}
+	}
+
+	var slice *util.Range
+	if len(prefix) > 0 {
+		limit := make([]byte, len(prefix))
+		copy(limit, prefix)
+		for i := range limit {
+			limit[i]++
+			if limit[i] != 0 {
+				break
+			}
+		}
+		slice = util.BytesPrefix(prefix)
+	} else {
+		slice = util.BytesPrefix([]byte{})
+	}
+
+	iter := ldb.db.NewIterator(slice, nil)
+	return &levelDBIterator{
+		iter: iter,
+	}
+}
+
+// Close 关闭数据库
+func (ldb *levelDB) Close() error {
+	ldb.mu.Lock()
+	defer ldb.mu.Unlock()
+
+	if ldb.closed {
+		return nil
+	}
+
+	ldb.closed = true
+	return ldb.db.Close()
+}
+
+// Compact 压缩数据库
+func (ldb *levelDB) Compact() error {
+	ldb.mu.RLock()
+	defer ldb.mu.RUnlock()
+
+	if ldb.closed {
+		return ErrDatabaseClosed
+	}
+
+	// 压缩整个数据库
+	return ldb.db.CompactRange(nil, nil)
+}
+
+// Stat 获取数据库统计信息
+func (ldb *levelDB) Stat() (*Stat, error) {
+	ldb.mu.RLock()
+	defer ldb.mu.RUnlock()
+
+	if ldb.closed {
+		return nil, ErrDatabaseClosed
+	}
+
+	// 简化版统计：计算目录大小
+	var size int64
+	err := filepath.Walk(ldb.path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &Stat{
+		Size: size,
+	}, nil
+}
+
+// levelDBBatch LevelDB 批量操作
+type levelDBBatch struct {
+	batch *leveldb.Batch
+	ldb   *levelDB
+}
+
+func (b *levelDBBatch) Put(key, value []byte) error {
+	b.batch.Put(key, value)
+	return nil
+}
+
+func (b *levelDBBatch) Delete(key []byte) error {
+	b.batch.Delete(key)
+	return nil
+}
+
+func (b *levelDBBatch) Len() int {
+	return b.batch.Len()
+}
+
+func (b *levelDBBatch) Write() error {
+	return b.ldb.Write(b)
+}
+
+func (b *levelDBBatch) Reset() {
+	b.batch.Reset()
+}
+
+// levelDBIterator LevelDB 迭代器
+type levelDBIterator struct {
+	iter iterator
+}
+
+func (it *levelDBIterator) Next() bool {
+	return it.iter.Next()
+}
+
+func (it *levelDBIterator) Prev() bool {
+	return it.iter.Prev()
+}
+
+func (it *levelDBIterator) Seek(key []byte) bool {
+	return it.iter.Seek(key)
+}
+
+func (it *levelDBIterator) Key() []byte {
+	return it.iter.Key()
+}
+
+func (it *levelDBIterator) Value() []byte {
+	return it.iter.Value()
+}
+
+func (it *levelDBIterator) Release() {
+	it.iter.Release()
+}
+
+func (it *levelDBIterator) Error() error {
+	return it.iter.Error()
+}
+
+// iterator 接口（从 leveldb 迭代器适配）
+type iterator interface {
+	Next() bool
+	Prev() bool
+	Seek(key []byte) bool
+	Key() []byte
+	Value() []byte
+	Release()
+	Error() error
+}
+
+// closedBatch 已关闭数据库的批量操作
+type closedBatch struct{}
+
+func (b *closedBatch) Put(key, value []byte) error {
+	return ErrDatabaseClosed
+}
+
+func (b *closedBatch) Delete(key []byte) error {
+	return ErrDatabaseClosed
+}
+
+func (b *closedBatch) Len() int {
+	return 0
+}
+
+func (b *closedBatch) Write() error {
+	return ErrDatabaseClosed
+}
+
+func (b *closedBatch) Reset() {}
+
+// closedIterator 已关闭数据库的迭代器
+type closedIterator struct{}
+
+func (it *closedIterator) Next() bool { return false }
+func (it *closedIterator) Prev() bool { return false }
+func (it *closedIterator) Seek(key []byte) bool { return false }
+func (it *closedIterator) Key() []byte { return nil }
+func (it *closedIterator) Value() []byte { return nil }
+func (it *closedIterator) Release() {}
+func (it *closedIterator) Error() error { return ErrDatabaseClosed }
